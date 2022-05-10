@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_timer_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="glbl" />
+            <top_module name="tb_timer" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="2854050726666fs"></ZoomStartTime>
+      <ZoomEndTime time="2892850726667fs"></ZoomEndTime>
+      <Cursor1Time time="2886384060000fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="136"></NameColumnWidth>
+      <ValueColumnWidth column_width="69"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="6" />
+   <wvobject fp_name="/tb_timer/tb_clk" type="logic">
+      <obj_property name="ElementShortName">tb_clk</obj_property>
+      <obj_property name="ObjectShortName">tb_clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_timer/tb_inc" type="logic">
+      <obj_property name="ElementShortName">tb_inc</obj_property>
+      <obj_property name="ObjectShortName">tb_inc</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_timer/tb_next" type="logic">
+      <obj_property name="ElementShortName">tb_next</obj_property>
+      <obj_property name="ObjectShortName">tb_next</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_timer/tb_nRst" type="logic">
+      <obj_property name="ElementShortName">tb_nRst</obj_property>
+      <obj_property name="ObjectShortName">tb_nRst</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_timer/tb_seg_dat" type="array">
+      <obj_property name="ElementShortName">tb_seg_dat[7:0]</obj_property>
+      <obj_property name="ObjectShortName">tb_seg_dat[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_timer/tb_seg_sel" type="array">
+      <obj_property name="ElementShortName">tb_seg_sel[3:0]</obj_property>
+      <obj_property name="ObjectShortName">tb_seg_sel[3:0]</obj_property>
+   </wvobject>
+</wave_config>
