@@ -1,0 +1,443 @@
+mini project 레포트
+
+1.	Block diagram
+ 이번 과제에서는 다음과 같이 모듈을 구성하였다. 
+ 
+counter 모듈은 25Mhz의 clk 신호를 1khz로 나눠 clk_1khz 클럭을 출력한다.
+debounce 모듈은 입력의 버튼을 눌렀을 때 발생하는 chattering을 제어하기 위한 모듈이다. inc와 next 버튼 입력 신호, clk, nRst 신호를 입력으로 받아 next 모듈에 next_reg, increase 모듈에 inc_reg를 출력한다.
+next 모듈과 increase 모듈은 nRst, clk, 그리고 각각 next와 inc 버튼 입력을 debounce 모듈에 넣어서 출력을 받아 각각 inc_falling과 next_falling 신호를 출력한다.
+마지막으로 timer 모듈은 next와 increase 모듈에서 출력된 inc_falling과 next_falling 신호와 counter 모듈에서 출력된 clk_1khz, 그리고 nRst, clk 입력을 받아서 최종적으로 seg_sel [3:0], seg_dat [7:0]을 출력한다.
+2.	State diagram
+이번 과제에서 구현한 timer는 다음과 같은 state diagram에 따라 동작한다.
+ 
+S0 상태는 초기 상태이며 seg_sel[3:0]=0111을 출력한다. S1 상태는 seg_sel[3:0]=1011을 출력하고, S2 상태는 seg_sel[3:0]=1101을 출력하고, S3 상태는 seg_sel[3:0]=1110을 출력한다.
+상태는 1khz 클럭이 positive edge 가 될 때마다 다음 상태로 넘어간다.
+이를 통해 dynamic display를 구현했다.
+
+
+ 
+그리고 next 버튼의 입력이 들어오는 것을 카운트를 해주는 변수를 만들어서, 그 횟수에 따라 상태가 달라지게 구현했다.
+우선 초기 상태는 next_cnt가 0일 때이다. 이 상태에서 inc 버튼을 누르면 digit1의 숫자가 1 상승하도록 출력한다.. 다음 상태는 next_cnt가 1일 때로, 이 상태에서 inc 버튼을 누르면 digit2의 숫자가 1 상승하도록 출력한다. 다음 상태는 next_cnt가 2일 때로, 이 상태에서 inc 버튼을 누르면 digit3의 숫자가 1 상승하도록 출력한다. 다음 상태는 next_cnt가 3일 때로, 이 상태에서 inc 버튼을 누르면 digit4의 숫자가 1 상승하도록 출력한다. 위 상황에서 digit1~4의 숫자가 9를 넘어가게 되면 0으로 돌아가도록 설계했다. next_cnt가 0,1,2,3인 경우는 next 버튼을 누르는 것이 다음 상태로 넘어가는 조건이지만, 마지막 상태인 next_cnt가 4일 때는, inc 버튼과 next 버튼의 입력을 무시하도록 설계했다. 그리고 digit1~4가 각각 천의 자리, 백의 자리, 십의 자리, 일의 자리에 들어가는 숫자로 해서, 그 수가 0이 될 때까지 0.1초마다 1씩 감소하도록  구현했다. 그리고 0이 되면 다음 상태, next_cnt가 0인 상태로 넘어가서 이 과정을 반복하도록 설계했다. 그리고 nRst 버튼을 누르면 초기상태로 돌아가고, digit1~4에 설정된 숫자도 모두 0이 되도록 했다.
+ 
+3.	구현
+모듈은 다음과 같이 구현되었다.
+module timer(clk, nRst, inc, next, seg_dat, seg_sel);
+input clk, nRst, inc, next;
+output reg [7:0] seg_dat;
+output reg [3:0] seg_sel;
+parameter [1:0] S0 = 2'd0, S1 = 2'd1, S2 = 2'd2, S3 = 2'd3;
+reg [1:0] state=0, nxt_state;
+reg [3:0] seg;
+reg [22:0] cnt1 = 0;
+reg [22:0] cnt2 = 0;
+reg [3:0] offvalue = 10;
+reg [3:0] value1=0, value2=0, value3=0, value4=0, value5=0, value6=0, value7=0, value8=0;
+reg [3:0] onvalue;
+wire inc_falling, next_falling;
+reg inc_a, next_a;
+reg [3:0] dig1, dig2, dig3, dig4;
+wire clk_1khz;
+reg [2:0] next_cnt=0, next_cntv=0;
+
+counter c0(.clk(clk), .clk_1khz(clk_1khz));
+increase in0(.clk(clk), .nRst(nRst), .inc(inc), .inc_falling(inc_falling));
+next ne0(.clk(clk), .nRst(nRst), .next(next), .next_falling(next_falling));
+
+always @(*) begin
+    if (next_cnt == 4) begin
+        inc_a=0;
+        next_a=0;
+    end else begin
+        inc_a=inc_falling;
+        next_a=next_falling;
+    end
+end
+
+always @(*) begin
+    case (seg)
+    0 : seg_dat = 8'b00111111;
+    1 : seg_dat = 8'b00000110;
+    2 : seg_dat = 8'b01011011;
+    3 : seg_dat = 8'b01001111;
+    4 : seg_dat = 8'b01100110;
+    5 : seg_dat = 8'b01101101;
+    6 : seg_dat = 8'b01111101;
+    7 : seg_dat = 8'b00000111;
+    8 : seg_dat = 8'b01111111;
+    9 : seg_dat = 8'b01100111;
+    default : seg_dat = 8'b00000000;
+    endcase
+end
+
+always @(posedge clk_1khz)
+    if (~nRst)
+        state <= S0;
+    else
+        state <= nxt_state;
+
+always @(posedge clk_1khz) begin
+    if (~nRst) begin
+        seg = 0;
+    end else if (next_cnt == 4) begin
+        seg = onvalue;
+    end else begin
+        if (cnt1<50) begin
+            cnt1 = cnt1+1;
+            seg = onvalue;
+        end else if (cnt1<100) begin
+            cnt1 = cnt1+1;
+            seg = offvalue;
+        end else begin
+            cnt1= 0;
+        end
+    end
+end
+
+always @(posedge clk_1khz) begin
+    case (state)
+    S0 : begin
+        seg_sel <= 4'b0111; 
+        end
+    S1 : begin
+        seg_sel <= 4'b1011;
+        end
+    S2 : begin
+        seg_sel <= 4'b1101;
+        end
+    S3 : begin
+        seg_sel <= 4'b1110;
+        end
+    endcase
+end
+
+always @(*) begin
+    case (state)
+        S0 : onvalue <= dig1;
+        S1 : onvalue <= dig2;
+        S2 : onvalue <= dig3;
+        S3 : onvalue <= dig4;
+    endcase
+end
+    
+always @(*) begin
+    nxt_state = 2'bx;
+    case (state)
+    S0 : begin
+        nxt_state = S1;
+    end
+    S1 : begin
+        nxt_state = S2;
+    end
+    S2 : begin
+        nxt_state = S3;
+    end    
+    S3 : begin
+        nxt_state = S0;
+    end
+    endcase
+end
+
+always @(posedge clk) begin
+    if (~nRst) begin
+        next_cnt <= #1 0;
+    end else if (next_cnt == 4) begin
+        if (value5==0 && value6==0 && value7==0 && value8==0) begin
+            next_cnt <= #1 0;
+        end
+    end else
+        next_cnt <= #1 next_cntv;
+end
+
+always @(*) begin
+    if (next_a) begin
+        next_cntv <= next_cnt+1;
+    end else
+        next_cntv <= next_cnt;
+end
+
+always @(*) begin
+    if (~nRst) begin
+        dig1 <= #1 0;
+        dig2 <= #1 0;
+        dig3 <= #1 0;
+        dig4 <= #1 0;
+    end else begin
+        if (next_cnt == 4) begin
+            dig1 <= #1 value5;
+            dig2 <= #1 value6;
+            dig3 <= #1 value7;
+            dig4 <= #1 value8;
+        end else begin
+            dig1 <= #1 value1;
+            dig2 <= #1 value2;
+            dig3 <= #1 value3;
+            dig4 <= #1 value4;
+        end
+    end       
+end
+
+always @(posedge clk) begin
+    if (inc_a) begin
+        if (next_cnt == 0) begin
+            value1 = dig1>=9 ? 0 : dig1+1;
+        end else if (next_cnt == 1) begin
+            value2 = dig2>=9 ? 0 : dig2+1;
+        end else if (next_cnt == 2) begin
+            value3 = dig3>=9 ? 0 : dig3+1;
+        end else if (next_cnt == 3) begin
+            value4 = dig4>=9 ? 0 : dig4+1;
+        end               
+    end else begin
+        value1=dig1;
+        value2=dig2;
+        value3=dig3;
+        value4=dig4;
+    end
+end
+
+always @(posedge clk_1khz) begin
+    if (~nRst) begin
+        value5=0;
+        value6=0;
+        value7=0;
+        value8=0;
+    end else if (next_cnt == 4) begin
+        if (cnt2<=100) begin
+            cnt2=cnt2+1;
+        end else begin
+            cnt2=0;
+            value8=dig4-1;
+            if (value8>9) begin
+                value8=9;
+                value7=dig3-1;
+            end
+            if (value7>9) begin
+                value7=9;
+                value6=dig2-1;
+            end
+            if (value6>9) begin
+                value6=9;
+                value5=dig1-1;
+            end
+        end
+    end else begin
+        value5 = value1;
+        value6 = value2;
+        value7 = value3;
+        value8 = value4;
+    end
+end
+
+endmodule
+
+////////////////////////////////////////////////////////////////
+
+module counter(input clk, output clk_1khz);
+reg [14:0] cnt=0; 
+reg clk_1khz=0;
+
+always @(posedge clk) begin
+    if (cnt<12500) begin
+        cnt <= cnt + 1;
+    end else begin
+        cnt <= 0;
+        clk_1khz <= ~clk_1khz;
+    end
+end
+
+endmodule
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+module debounce(input clk, nRst, button_in, output reg DB_out);
+
+parameter N = 11;
+reg [N-1:0] q_reg;
+reg [N-1:0] q_next;
+reg DFF1, DFF2;
+wire q_add;
+wire q_reset;
+
+assign q_reset = (DFF1^DFF2);
+assign q_add = ~(q_reg[N-1]);
+
+always @ (*) begin
+    case( {q_reset , q_add})
+        2'b00: q_next = q_reg;
+        2'b01: q_next = q_reg + 1;
+        default : q_next = { N {1'b0} };
+    endcase
+end
+
+always @(posedge clk) begin
+    if(nRst == 1'b0) begin
+        DFF1 <= 1'b0;
+        DFF2 <= 1'b0;
+        q_reg <= { N {1'b0} };
+    end else begin
+        DFF1 <= button_in;
+        DFF2 <= DFF1;
+        q_reg <= q_next;
+    end
+end
+
+always @(posedge clk) begin
+    if(q_reg[N-1] == 1'b1)
+        DB_out <= DFF2;
+    else
+        DB_out <= DB_out;
+    end
+endmodule
+
+//////////////////////////////////////
+
+
+module increase(input clk, input nRst, input inc, output inc_falling);
+wire inc_reg, inc_falling;
+reg inc_reg2;
+
+debounce db0(.clk(clk), .nRst(nRst), .button_in(inc), .DB_out(inc_reg) );
+
+assign inc_falling = ~inc_reg && inc_reg2;
+
+always @(posedge clk) begin
+    if (~nRst) begin;
+        inc_reg2 <= #1 1'b0;
+    end else begin
+        inc_reg2 <= #1 inc_reg;
+    end
+end
+
+endmodule
+
+//////////////////////////////////////////////////
+
+
+module next(input clk, input nRst, input next, output next_falling);
+wire next_reg, next_falling;
+reg next_reg2;
+
+debounce db1(.clk(clk), .nRst(nRst), .button_in(next), .DB_out(next_reg) );
+
+assign next_falling = ~next_reg && next_reg2;
+
+always @(posedge clk) begin
+    if (~nRst) begin;
+        next_reg2 <= #1 1'b0;
+    end else begin
+        next_reg2 <= #1 next_reg;
+    end
+end
+
+endmodule
+ 
+4.	구현
+timer 모듈은 다음과 같은 동작 시나리오에 의해 검증하였다.
+module tb_timer();
+reg tb_clk, tb_inc, tb_next, tb_nRst;
+wire [7:0] tb_seg_dat;
+wire [3:0] tb_seg_sel;
+
+timer t0 (.clk(tb_clk), .nRst(tb_nRst), .inc(tb_inc), .next(tb_next),
+          .seg_dat(tb_seg_dat), .seg_sel(tb_seg_sel));
+
+always
+    #20 tb_clk = ~tb_clk;
+
+initial begin
+    tb_clk = 0;
+    tb_nRst = 0;
+    tb_inc = 0;
+    tb_next = 0;
+    #200 tb_nRst = 1;
+    
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #2000000 tb_inc = 1;
+    #2000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    
+    #5000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+
+    #1000000000 tb_nRst = 0;
+    #100000 tb_nRst = 1;
+    
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_inc = 1;
+    #1000000 tb_inc = 0;
+    #1000000 tb_next = 1;
+    #1000000 tb_next = 0;
+end
+endmodule
+
+처음에는 inc에 2ms가 지날 때마다 0과 1을 번갈아 가며 줘서, 숫자가 9가 넘어가면 0으로 넘어가는지를 검증했다. 그리고 다음으로 next에 1ms 신호를 주고, 또 inc에 1ms 신호를 여러 번 주는 걸 반복해서 digit2, digit3, digit4에 해당하는 숫자도 정상적으로 증가하는지 검증했다.
+그 다음에 네번째로 next 신호를 줬을 때, 숫자가 감소하는 동안 next와 inc 신호를 한번씩  줌으로써, 숫자가 감소하는 동안에는 inc와 next신호를 무시하는 것을 검증했다.
+그리고 1s 정도의 시간동안 숫자가 감소하는 것을 확인하고, nRst 신호를 0으로 해서, 초기화 되는 것을 확인했다.
+그리고 숫자가 모두 감소했을 때의 상태를 확인하기 위해 digit3, digit4에 적은 수를 주고, 이를 검증했다.
